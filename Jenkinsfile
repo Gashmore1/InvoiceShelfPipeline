@@ -15,6 +15,9 @@ pipeline {
 		}
 	}
 
+  parameters {
+    string(name: 'TAG', defaultValue: '', description: 'Tag to build (leave blank for latest)')
+  }
   stages {
     stage('Get Latest Tag') {
       steps {
@@ -33,17 +36,24 @@ pipeline {
         }
       }
     }
+    stage('Set Build Tag') {
+      steps {
+        script {
+          env.BUILD_TAG = params.TAG ?: env.LATEST_TAG
+        }
+      }
+    }
     stage('Checkout') {
       steps {
         checkout([$class: 'GitSCM',
-          branches: [[name: "refs/tags/${env.LATEST_TAG}" ]],
+          branches: [[name: "refs/tags/${env.BUILD_TAG}" ]],
           userRemoteConfigs: [[url: 'https://github.com/InvoiceShelf/InvoiceShelf.git']]
         ])
       }
     }
     stage('Build Docker Images') {
       parallel {
-        stage("fontend") {
+        stage('frontend') {
           steps {
             container('dind') {
               echo "In stage Nested 2 within Branch frontend"
