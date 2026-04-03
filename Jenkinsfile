@@ -5,12 +5,12 @@ pipeline {
 			yaml '''
       spec:
         containers:
-        - name: dind
-          image: docker:dind
+        - name: buildkit
+          image: moby/buildkit
           tty: true
           securityContext:
-            allowPrivilegeEscalation: true
-            privileged: true
+            allowPrivilegeEscalation: false
+            privileged: false
 '''
 		}
 	}
@@ -51,13 +51,22 @@ pipeline {
         ])
       }
     }
+    stage('Configuring Docker') {
+      steps {
+       withCredentials([usernamePassword(credentialsId: 'dockerPAT',
+        usernameVariable: 'DOCKER_USERNAME',
+        passwordVariable: 'DOCKER_TOKEN')]){
+          sh 'mkdir -p ~/.docker'
+          sh 'echo "{\"auths\":{\"docker.io\":{\"username\":\"$DOCKER_USERNAME\",\"password\":\"$DOCKER_TOKEN\"}}}" > ~/.docker/config.json'
+        }
+      }
+    }
     stage('Build Docker Images') {
       parallel {
         stage('frontend') {
           steps {
-            container('dind') {
-              echo "In stage Nested 2 within Branch frontend"
-              sh 'docker build -t gashmore/invoice-shelf-mariadb -f docker/production/Dockerfile .'
+            container('buildkit') {
+              sh 'buildctl-daemonless.sh build --frontend dockerfile.v0 -local context=. -local dockerfile=./docker/production/ --output type=image,name=docker.io/gashmore/invoice-shelf-mariadb,push=true'
             }
           }
         }
