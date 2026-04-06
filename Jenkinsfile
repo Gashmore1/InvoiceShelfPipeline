@@ -73,10 +73,25 @@ pipeline {
     }
     stage('Build Docker Images') {
       parallel {
-        stage('frontend') {
+        stage('Production') {
           steps {
             container('buildkit') {
-              sh 'buildctl-daemonless.sh build --frontend dockerfile.v0 -local context=. -local dockerfile=./docker/production/ --output type=image,name=docker.io/gashmore/invoice-shelf-mariadb:${BUILD_TAG},push=true'
+              sh 'buildctl-daemonless.sh build --frontend dockerfile.v0 -local context=. -local dockerfile=./docker/production/ --output type=image,name=docker.io/gashmore/invoice-shelf:${BUILD_TAG},push=true'
+            }
+          }
+        }
+        stage('Development') {
+          steps {
+            container('buildkit') {
+              sh '''
+              buildctl-daemonless.sh build \
+              --frontend dockerfile.v0 \
+              -local context=. \
+              -local dockerfile=./docker/development/ \
+              --opt build-arg:UID=${USRID:-1000} \
+              --opt build-arg:GID=${GRPID:-1000} \
+              --output type=image,name=docker.io/gashmore/invoice-shelf:${BUILD_TAG}-dev,push=true
+              '''
             }
           }
         }
@@ -88,7 +103,13 @@ pipeline {
       }
       steps {
         container('buildkit') {
-          sh 'buildctl-daemonless.sh build --frontend dockerfile.v0 -local context=. -local dockerfile=./docker/production/ --output type=image,name=docker.io/gashmore/invoice-shelf-mariadb:latest,push=true'
+          sh '''
+          buildctl-daemonless.sh build \
+          --frontend dockerfile.v0 \
+          -local context=. \
+          -local dockerfile=./docker/production/ \
+          --output type=image,name=docker.io/gashmore/invoice-shelf:latest,push=true
+          '''
         }
       }
     }
